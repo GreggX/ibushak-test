@@ -25,47 +25,49 @@ function getJSON(url) {
   })
 }
 
+
+
 async function apiGetPhones(req, res) {
-  const baseUrl = 'https://api.mercadolibre.com/sites/MLM/search?'
-  const queryParams = {
-    category: 'MLM1055',
-    offset: 0
-  }
   const data = []
+  const promises = []
   const results = []
 
   try {
-    for (var i = 0; i < 2; i++) {
-      data.push(await getJSON(baseUrl + 'category=' + queryParams.category + '&offset=' + i * 50))
+    for (var i = 0; i < 20; i++) {
+      console.log('pushing data')
+      data.push(await getJSON(`https://api.mercadolibre.com/sites/MLM/search?category=MLM1055&offset=${i * 50}`))
     }
-  } catch(e) {
-    console.error(e)
-  }
+    for (let i = 0; i < data.length; i++) {
+      for (let e = 0; e < data[i].results.length; e++) {
+        let usr = await getJSON(`https://api.mercadolibre.com/users/${data[i].results[e].seller.id}`)
+        results.push({
+          sellerID: data[i].results[e].seller.id,
+          sellerName: usr.nickname,
+          producto: data[i].results[e].title,
+          marca: data[i].results[e].title.split(" ")[0],
+          precio: data[i].results[e].price,
+          envioGratis: data[i].results[e].shipping.free_shipping,
+          tipoLogistica: data[i].results[e].shipping.logistic_type,
+          lugarOperacionSeller: {
+            ciudad: data[i].results[e].seller_address.city.name,
+            estado: data[i].results[e].seller_address.state.name,
+            pais: data[i].results[e].seller_address.country.name
+          },
+          condicionArticulo: data[i].results[e].condition,
+          rangoPrecios: data[i].results[e].prices
+        })
+      }
+    }
 
-  data.forEach((e, i) => {
-    e.results.forEach(item => {
-      results.push({
-        sellerID: item.seller.id,
-        producto: item.title,
-        marca: item.title.split(" ")[0],
-        precio: item.price,
-        envioGratis: item.shipping.free_shipping,
-        tipoLogistica: item.shipping.logistic_type,
-        lugarOperacionSeller: {
-          ciudad: item.seller_address.city.name,
-          estado: item.seller_address.state.name,
-          pais: item.seller_address.country.name
-        },
-        condicionArticulo: item.condition,
-        rangoPrecios: item.prices
-      })
+    results.sort((a, b) => {
+      return a.precio - b.precio
     })
-  })
 
-  results.sort((a, b) => {
-    return a.precio - b.precio
-  })
-  res.json(results)
+    res.json(results)
+  } catch(e) {
+    console.error(e.message)
+    res.json('error')
+  }
 }
 
 module.exports = {
