@@ -29,39 +29,53 @@ function getJSON(url) {
 
 async function apiGetPhones(req, res) {
   const data = []
-  const promises = []
-  const results = []
+  let call
 
   try {
     for (var i = 0; i < 20; i++) {
-      console.log('pushing data')
-      data.push(await getJSON(`https://api.mercadolibre.com/sites/MLM/search?category=MLM1055&offset=${i * 50}`))
+      call = await getJSON(`https://api.mercadolibre.com/sites/MLM/search?category=MLM1055&sort=price_asc&offset=${i * 50}`)
+      data.push(call.results)
     }
-    for (let i = 0; i < data.length; i++) {
-      for (let e = 0; e < data[i].results.length; e++) {
-        let usr = await getJSON(`https://api.mercadolibre.com/users/${data[i].results[e].seller.id}`)
-        results.push({
-          sellerID: data[i].results[e].seller.id,
-          sellerName: usr.nickname,
-          producto: data[i].results[e].title,
-          marca: data[i].results[e].title.split(" ")[0],
-          precio: data[i].results[e].price,
-          envioGratis: data[i].results[e].shipping.free_shipping,
-          tipoLogistica: data[i].results[e].shipping.logistic_type,
-          lugarOperacionSeller: {
-            ciudad: data[i].results[e].seller_address.city.name,
-            estado: data[i].results[e].seller_address.state.name,
-            pais: data[i].results[e].seller_address.country.name
-          },
-          condicionArticulo: data[i].results[e].condition,
-          rangoPrecios: data[i].results[e].prices
-        })
-      }
-    }
-
-    results.sort((a, b) => {
-      return a.precio - b.precio
-    })
+    const results = await Promise.all(data
+      .reduce((acc, val) => acc.concat(val), [])
+      .map(async item => {
+        try {
+          let usr = await getJSON(`https://api.mercadolibre.com/users/${item.seller.id}`)
+          return ({
+            sellerID: item.seller.id,
+            sellerName: usr.nickname,
+            producto: item.title,
+            marca: item.title.split(" ")[0],
+            precio: item.price,
+            envioGratis: item.shipping.free_shipping,
+            tipoLogistica: item.shipping.logistic_type,
+            lugarOperacionSeller: {
+              ciudad: item.seller_address.city.name,
+              estado: item.seller_address.state.name,
+              pais: item.seller_address.country.name
+            },
+            condicionArticulo: item.condition,
+            rangoPrecios: item.prices
+          })
+        } catch {
+          return ({
+            sellerID: item.seller.id,
+            sellerName: 'Not Found',
+            producto: item.title,
+            marca: item.title.split(" ")[0],
+            precio: item.price,
+            envioGratis: item.shipping.free_shipping,
+            tipoLogistica: item.shipping.logistic_type,
+            lugarOperacionSeller: {
+              ciudad: item.seller_address.city.name,
+              estado: item.seller_address.state.name,
+              pais: item.seller_address.country.name
+            },
+            condicionArticulo: item.condition,
+            rangoPrecios: item.prices
+          })
+        }
+      }))
 
     res.json(results)
   } catch(e) {
